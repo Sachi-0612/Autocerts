@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import Papa from "papaparse";
 
-export default function Upload() {
+export default function Upload({ onNamesExtracted }) {
   const [active, setActive] = useState(0);
   const [file, setFile] = useState(null);
   const [error, setError] = useState("");
@@ -24,6 +25,26 @@ export default function Upload() {
 
     setError("");
     setFile(selected);
+
+    // --- Parse CSV ---
+    Papa.parse(selected, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (result) => {
+        // expects column called "name"
+        const extracted = result.data
+          .map(row => row.name || row.Name || row.NAME)
+          .filter(Boolean);
+
+        if (!extracted.length) {
+          setError("CSV must contain a 'name' column");
+          return;
+        }
+
+        onNamesExtracted(extracted);
+      },
+      error: () => setError("Failed to parse CSV"),
+    });
   };
 
   const base = "mx-1 py-2 px-3 font-medium rounded-lg hover:opacity-80";
@@ -44,7 +65,7 @@ export default function Upload() {
           </li>
         </ul>
       </div>
-      
+
       <div className="h-90 flex flex-col items-center justify-center gap-3 border-2 border-dashed border-gray-300 rounded-lg px-4">
         <input
           type="file"
@@ -61,16 +82,13 @@ export default function Upload() {
           Choose File
         </label>
 
-        {/* Preview */}
         {file && (
           <div className="text-sm text-gray-700 text-center">
             <p><strong>Name:</strong> {file.name}</p>
-            <p><strong>Size:</strong> {(file.size / 1024).toFixed(1)} KB</p>
-            <p><strong>Type:</strong> {file.type || "unknown"}</p>
+            <p><strong>Rows:</strong> parsed</p>
           </div>
         )}
 
-        {/* Error */}
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
     </div>
