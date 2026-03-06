@@ -2,6 +2,10 @@ import React from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
 import Layout from "./router/layout";
+import Login from "./components/Login";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { AuthProvider } from "./contexts/AuthContext";
+import { DataProvider } from "./contexts/DataContext";
 // import Upload from "./components/heroSection/Upload";
 import DesignTemplate from "./components/heroSection/DesignTemplate";
 import EmailConfig from "./components/heroSection/EmailConfig";
@@ -9,8 +13,18 @@ import EmailConfig from "./components/heroSection/EmailConfig";
 function App() {
   const router = createBrowserRouter([
     {
+      path: "/login",
+      element: <Login />,
+    },
+    {
       path: "/",
-      element: <Layout />,
+      element: (
+        <ProtectedRoute>
+          <DataProvider>
+            <Layout />
+          </DataProvider>
+        </ProtectedRoute>
+      ),
       children: [
         {
           path: "",
@@ -43,18 +57,9 @@ function App() {
   ]);
 
   return (
-    <div className="bg-gray-200 min-h-screen">
-      <div className="font-roboto text-4xl pt-6 px-7 font-bold">
-        AutoCerts
-      </div>
-
-      <div className="text-md text-gray-600 py-2.5 px-7">
-        Upload Excel data, customize templates, and send personalized
-        certificates or ID cards via email
-      </div>
-
+    <AuthProvider>
       <RouterProvider router={router} />
-    </div>
+    </AuthProvider>
   );
 }
 

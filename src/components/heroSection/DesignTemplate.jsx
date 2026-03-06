@@ -2,8 +2,10 @@ import React, { useState, useRef, useEffect } from "react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import * as XLSX from "xlsx";
+import { useData } from "../../contexts/DataContext";
 
 export default function DesignTemplate() {
+  const { setRecipients, setCertificates } = useData();
   const canvasRef = useRef(null);
 
   const [width, setWidth] = useState(800);
@@ -26,7 +28,6 @@ export default function DesignTemplate() {
   const [textAlign, setTextAlign] = useState("center");
   const [textBaseline, setTextBaseline] = useState("middle");
 
-  const [showEditor, setShowEditor] = useState(false);
   const [scale, setScale] = useState(1);
 
   const previewText =
@@ -78,6 +79,15 @@ export default function DesignTemplate() {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(sheet);
       setExcelData(jsonData);
+
+      // Set recipients data for email sending
+      setRecipients(jsonData.map((row, index) => ({
+        id: index + 1,
+        ...row,
+        // Ensure email field exists (case insensitive)
+        email: row.email || row.Email || row.EMAIL || '',
+        name: row.name || row.Name || row.NAME || row.firstName || row.FirstName || '',
+      })));
     };
 
     reader.readAsBinaryString(file);
@@ -167,7 +177,6 @@ const loadGoogleFont = async (fontName) => {
   const generateCertificates = async () => {
     await loadGoogleFont(fontFamily);
 
-ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px "${fontFamily}"`;
     if (!templateFile || !selectedColumn || excelData.length === 0) {
       alert("Upload template, Excel file and select column.");
       return;
@@ -180,6 +189,8 @@ ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px "${fontFamily}"`;
     baseImg.src = preview;
 
     await new Promise((res) => (baseImg.onload = res));
+
+    const generatedCertificates = [];
 
     for (let i = 0; i < values.length; i++) {
       const canvas = document.createElement("canvas");
@@ -203,10 +214,23 @@ ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px "${fontFamily}"`;
 
       const safeName = String(values[i]).replace(/[^\w\s]/gi, "");
       zip.file(`${safeName}.png`, blob);
+
+      // Store certificate for email attachment
+      generatedCertificates.push({
+        name: safeName,
+        blob: blob,
+        filename: `${safeName}.png`,
+        recipientIndex: i
+      });
     }
+
+    // Store certificates in context for email attachment
+    setCertificates(generatedCertificates);
 
     const zipBlob = await zip.generateAsync({ type: "blob" });
     saveAs(zipBlob, "certificates.zip");
+
+    alert(`Generated ${generatedCertificates.length} certificates successfully! You can now proceed to send emails.`);
   };
 
 return (
