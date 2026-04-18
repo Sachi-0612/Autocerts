@@ -18,6 +18,15 @@ export const DataProvider = ({ children }) => {
     "Dear {name},\nPlease find your certificate attached.\nBest regards"
   );
 
+  // Template data from Canvas
+  const [templateFile, setTemplateFile] = useState(null);
+  const [templatePreview, setTemplatePreview] = useState(null);
+  const [templateWidth, setTemplateWidth] = useState(800);
+  const [templateHeight, setTemplateHeight] = useState(600);
+  const [textElements, setTextElements] = useState([]);
+  const [excelData, setExcelData] = useState([]);
+  const [columns, setColumns] = useState([]);
+
   const value = {
     recipients,
     setRecipients,
@@ -27,6 +36,21 @@ export const DataProvider = ({ children }) => {
     setEmailSubject,
     emailBody,
     setEmailBody,
+    // Template data
+    templateFile,
+    setTemplateFile,
+    templatePreview,
+    setTemplatePreview,
+    templateWidth,
+    setTemplateWidth,
+    templateHeight,
+    setTemplateHeight,
+    textElements,
+    setTextElements,
+    excelData,
+    setExcelData,
+    columns,
+    setColumns,
   };
 
   return (

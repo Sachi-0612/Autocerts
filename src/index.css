@@ -1,1 +1,19 @@
 @import "tailwindcss";
+
+html.dark-mode {
+  color-scheme: dark;
+  background: #1a1a1a;
+}
+
+html.dark-mode body {
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
+html.dark-mode .dark-mode-bg {
+  background-color: #1a1a1a;
+}
+
+html.dark-mode .dark-mode-text {
+  color: #ffffff;
+}
