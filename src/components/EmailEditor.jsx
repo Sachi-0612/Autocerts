@@ -126,10 +126,24 @@ export default function EmailEditor() {
     setIsProcessing(true);
 
     try {
-      // For now, we'll send emails without attachments since the PHP backend
-      // may handle file uploads separately. In a production app, you'd upload
-      // certificates to cloud storage and include download links.
+      // Convert certificates to base64 attachments mapped by recipient email
+      const recipientAttachments = {};
       
+      for (const cert of certificates) {
+        const recipientEmail = cert.recipient.email;
+        const base64 = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.readAsDataURL(cert.blob);
+        });
+        
+        recipientAttachments[recipientEmail] = [{
+          filename: cert.filename,
+          content: base64,
+          contentType: 'image/png'
+        }];
+      }
+
       const results = await sendBulkEmails(
         recipients.map(recipient => ({
           ...recipient,
@@ -137,7 +151,8 @@ export default function EmailEditor() {
           name: recipient.name || recipient.Name || 'Recipient'
         })),
         emailSubject,
-        emailBody
+        emailBody,
+        recipientAttachments
       );
 
       const successCount = results.filter(r => r.success).length;

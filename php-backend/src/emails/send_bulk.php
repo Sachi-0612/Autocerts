@@ -3,11 +3,10 @@
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 
-use Firebase\JWT\JWT;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-// Verify JWT token
+// Verify simple token
 $headers = getallheaders();
 $authHeader = $headers['Authorization'] ?? '';
 
@@ -20,8 +19,11 @@ if (!$authHeader || !preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
 $token = $matches[1];
 
 try {
-    $decoded = JWT::decode($token, $_ENV['JWT_SECRET'], ['HS256']);
-    $userId = $decoded->user_id;
+    $decoded = json_decode(base64_decode($token), true);
+    if (!$decoded || !isset($decoded['user_id'])) {
+        throw new Exception('Invalid token');
+    }
+    $userId = $decoded['user_id'];
 } catch (Exception $e) {
     http_response_code(401);
     echo json_encode(['error' => 'Invalid token']);
@@ -40,8 +42,12 @@ if (!$data || !isset($data['recipients']) || !isset($data['subject']) || !isset(
 $recipients = $data['recipients'];
 $subject = $data['subject'];
 $body = $data['body'];
+$attachments = $data['attachments'] ?? []; // attachments mapped by recipient email
 
 $results = [];
+
+// Create temp directory for attachments if needed
+$tempDir = sys_get_temp_dir() . '/autocerts_attachments_' . uniqid();
 
 foreach ($recipients as $recipient) {
     try {
@@ -71,12 +77,28 @@ foreach ($recipients as $recipient) {
         }
         $mail->Body = $personalizedBody;
 
-        // TODO: Add attachments if needed
-        // if (isset($data['attachments'])) {
-        //     foreach ($data['attachments'] as $attachment) {
-        //         $mail->addAttachment($attachment['path'], $attachment['name']);
-        //     }
-        // }
+        // Add attachments for this recipient if they exist
+        $recipientEmail = $recipient['email'];
+        if (isset($attachments[$recipientEmail])) {
+            // Create temp directory if it doesn't exist
+            if (!is_dir($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
+            
+            foreach ($attachments[$recipientEmail] as $attachment) {
+                if (isset($attachment['content']) && isset($attachment['filename'])) {
+                    // Decode base64 content
+                    $fileContent = base64_decode($attachment['content']);
+                    $tempFilePath = $tempDir . '/' . basename($attachment['filename']);
+                    
+                    // Write decoded content to temp file
+                    file_put_contents($tempFilePath, $fileContent);
+                    
+                    // Add attachment to mail
+                    $mail->addAttachment($tempFilePath, $attachment['filename']);
+                }
+            }
+        }
 
         $mail->send();
 
@@ -101,6 +123,18 @@ foreach ($recipients as $recipient) {
     }
 }
 
+// Clean up temp directory and files
+if (is_dir($tempDir)) {
+    $files = glob($tempDir . '/*');
+    foreach ($files as $file) {
+        if (is_file($file)) {
+            unlink($file);
+        }
+    }
+    rmdir($tempDir);
+}
+
+header('Content-Type: application/json');
 echo json_encode([
     'results' => $results,
     'summary' => [
@@ -112,11 +146,19 @@ echo json_encode([
 
 function logEmail($userId, $recipientEmail, $subject, $status, $errorMessage = null) {
     try {
-        $pdo = new PDO(
-            "mysql:host=" . $_ENV['DB_HOST'] . ";dbname=" . $_ENV['DB_NAME'],
-            $_ENV['DB_USER'],
-            $_ENV['DB_PASS']
-        );
+        $pdo = new PDO('sqlite:' . $_ENV['DB_PATH']);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        // Create table if not exists
+        $pdo->exec("CREATE TABLE IF NOT EXISTS email_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            recipient_email TEXT,
+            subject TEXT,
+            status TEXT,
+            error_message TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )");
 
         $stmt = $pdo->prepare("INSERT INTO email_logs (user_id, recipient_email, subject, status, error_message) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute([$userId, $recipientEmail, $subject, $status, $errorMessage]);

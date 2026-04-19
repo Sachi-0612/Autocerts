@@ -1,6 +1,10 @@
 <?php
 // public/index.php - Simplified entry point without external dependencies
 
+// Enable error reporting for debugging
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 // Load environment variables from .env file
 function loadEnv($path) {
     if (!file_exists($path)) {
@@ -66,6 +70,9 @@ switch ($path) {
         } elseif ($requestMethod === 'POST') {
             require_once __DIR__ . '/../src/api/create_certificate_simple.php';
         }
+        break;
+    case '/emails/send-bulk':
+        require_once __DIR__ . '/../src/emails/send_bulk.php';
         break;
     default:
         http_response_code(404);
