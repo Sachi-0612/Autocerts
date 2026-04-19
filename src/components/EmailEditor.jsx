@@ -126,8 +126,8 @@ export default function EmailEditor() {
     setIsProcessing(true);
 
     try {
-      // For now, we'll send emails without attachments since Firebase Functions
-      // doesn't handle file uploads easily. In a production app, you'd upload
+      // For now, we'll send emails without attachments since the PHP backend
+      // may handle file uploads separately. In a production app, you'd upload
       // certificates to cloud storage and include download links.
       
       const results = await sendBulkEmails(

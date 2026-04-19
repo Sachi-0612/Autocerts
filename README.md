@@ -1,109 +1,116 @@
 # AutoCerts - Certificate Automation Tool
 
-A React application for generating personalized certificates and sending them via email with Google authentication.
+A React application for generating personalized certificates and sending them via email with PHP backend authentication.
 
 ## Features
 
-- Google OAuth authentication
+- Email/Password and Google OAuth authentication
 - Certificate template customization
 - Excel data import for bulk certificate generation
 - Email configuration with personalization
-- Bulk email sending
+- Bulk email sending via PHP backend
 
 ## Setup Instructions
 
-### 1. Firebase Configuration
+### 1. PHP Backend Setup
 
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Create a new project or select an existing one
-3. Enable Google Authentication:
-   - Go to Authentication > Sign-in method
-   - Enable Google provider
-   - Add your domain to authorized domains
-4. Enable Cloud Functions:
-   - Go to Functions in the Firebase Console
-   - Enable Cloud Functions if not already enabled
-5. Get your Firebase config:
-   - Go to Project settings > General
-   - Scroll to "Your apps" section
-   - Copy the config object
+1. Navigate to the `php-backend` directory
+2. Install PHP dependencies:
+   ```bash
+   composer install
+   ```
 
-6. Update `src/firebase.js` with your Firebase config:
+3. Create a `.env` file in the `php-backend` directory:
+   ```env
+   DB_HOST=localhost
+   DB_NAME=autocerts
+   DB_USER=your_db_user
+   DB_PASS=your_db_password
 
-```javascript
-const firebaseConfig = {
-  apiKey: "your-api-key",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "your-app-id"
-};
+   JWT_SECRET=your_jwt_secret_key
+
+   GOOGLE_CLIENT_ID=your_google_client_id
+   GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+   SMTP_HOST=your_smtp_host
+   SMTP_PORT=587
+   SMTP_USER=your_smtp_user
+   SMTP_PASS=your_smtp_password
+   SMTP_FROM=noreply@yourdomain.com
+   SMTP_FROM_NAME=AutoCerts
+   ```
+
+4. Set up your database:
+   - Create a MySQL database named `autocerts`
+   - Run the SQL schema from `php-backend/README.md`
+
+5. Configure your web server (Apache/Nginx) to serve the `php-backend/public` directory
+
+6. Set up Google OAuth:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create OAuth 2.0 credentials
+   - Add your PHP backend URL to authorized redirect URIs
+
+### 2. React Frontend Setup
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+2. Update the API base URL in `src/contexts/AuthContext.jsx` and `src/services/emailService.js`:
+   ```javascript
+   const API_BASE_URL = 'https://your-php-backend-domain.com'; // Replace with your PHP backend URL
+   ```
+
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+4. Open [http://localhost:5173](http://localhost:5173) in your browser
+
+## API Configuration
+
+Update the `API_BASE_URL` in these files to match your PHP backend domain:
+
+- `src/contexts/AuthContext.jsx`
+- `src/services/emailService.js`
+
+## Database Schema
+
+Create these tables in your MySQL database:
+
+### users table
+```sql
+CREATE TABLE users (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255),
+    google_id VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 ```
 
-7. Update `.firebaserc` with your project ID:
-
-```json
-{
-  "projects": {
-    "default": "your-actual-project-id"
-  }
-}
+### email_logs table
+```sql
+CREATE TABLE email_logs (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT,
+    recipient_email VARCHAR(255),
+    subject VARCHAR(255),
+    status ENUM('sent', 'failed'),
+    error_message TEXT,
+    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
 ```
-
-### 2. Deploy Firebase Functions
-
-1. Install Firebase CLI globally (if not already installed):
-```bash
-npm install -g firebase-tools
-```
-
-2. Login to Firebase:
-```bash
-firebase login
-```
-
-3. Set up SendGrid email configuration:
-```bash
-firebase functions:config:set sendgrid.key="your-sendgrid-api-key"
-firebase functions:config:set email.from_email="noreply@yourdomain.com"
-firebase functions:config:set email.from_name="AutoCerts"
-```
-
-4. Install function dependencies:
-```bash
-cd functions
-npm install
-cd ..
-```
-
-5. Deploy functions:
-```bash
-firebase deploy --only functions
-```
-
-### 3. Alternative Email Setup (Using Gmail with Nodemailer)
-
-If you prefer to use Gmail instead of SendGrid, modify `functions/index.js` to use Nodemailer:
-
-1. Install Nodemailer in functions:
-```bash
-cd functions
-npm install nodemailer
-npm uninstall @sendgrid/mail
-```
-
-2. Update the function to use Nodemailer with Gmail
-3. Set Gmail credentials:
-```bash
-firebase functions:config:set email.user="your-email@gmail.com" email.password="your-app-password"
-```
-
-**Note**: Gmail has strict sending limits and may mark bulk emails as spam. SendGrid is recommended for production use.
 
 ## Usage
 
-1. **Authentication**: Sign in with Google
+1. **Authentication**: Sign in with email/password or Google OAuth
 2. **Upload Template**: Upload your certificate template image
 3. **Upload Data**: Upload Excel file with recipient data
 4. **Customize**: Adjust text position, font, color, etc.
@@ -116,14 +123,14 @@ firebase functions:config:set email.user="your-email@gmail.com" email.password="
 Use these placeholders in your email body:
 - `{name}` - Recipient name
 - `{email}` - Recipient email
-- `{position}` - Recipient position (if available)
+- `{position}` - Recipient position (if available in Excel data)
 
 ## Important Notes
 
-- **Email Attachments**: Attachments can be supported by uploading files to Firebase Storage first, then including download links in emails.
-- **Email Limits**: Firebase Functions have quotas. Check Firebase pricing for higher limits.
-- **Security**: Never expose sensitive API keys in client-side code for production applications.
-- **Deployment**: You must deploy the Firebase Functions for email sending to work.
+- **Email Attachments**: Currently emails are sent without attachments. For production, implement file upload to cloud storage and include download links.
+- **CORS**: Configure your PHP backend to allow requests from your React app domain.
+- **Security**: Store JWT secrets securely and validate tokens properly.
+- **Email Limits**: Check your SMTP provider's sending limits.
 
 ## Development
 
@@ -134,15 +141,14 @@ npm run dev
 
 ## Deployment
 
-1. Build the app:
-```bash
-npm run build
-```
+1. Build the React app:
+   ```bash
+   npm run build
+   ```
 
-2. Deploy to Firebase:
-```bash
-firebase deploy
-```
+2. Deploy the `dist` folder to your web server
+
+3. Ensure your PHP backend is running and accessible
 
 ## Technologies Used
 

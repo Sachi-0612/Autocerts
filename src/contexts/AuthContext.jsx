@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   // PHP backend API base URL - update this to your PHP backend URL
-  const API_BASE_URL = 'http://localhost/autocerts-api'; // Change this to your PHP backend URL
+  const API_BASE_URL = 'http://localhost:8001'; // Change this to your PHP backend URL
 
   useEffect(() => {
     // Check if user is already logged in on app start
@@ -86,8 +86,12 @@ export const AuthProvider = ({ children }) => {
 
       const data = await response.json();
 
+      if (response.status === 409) {
+        throw new Error('User with this email already exists. Please login instead.');
+      }
+
       if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
+        throw new Error(data.error || 'Registration failed');
       }
 
       // Store token and user data
@@ -132,6 +136,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     loading,
+    setUser,
     signInWithGoogle,
     login,
     register,
